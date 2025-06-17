@@ -17,6 +17,7 @@ help:
 	@echo "  test-integration - Run integration tests (requires containers)"
 	@echo "  test-container   - Run container-specific tests"
 	@echo "  test-performance - Run performance tests"
+	@echo "  test-mail        - Run mail integration tests"
 	@echo "  test-coverage    - Run tests with coverage report"
 	@echo ""
 	@echo "Code Quality:"
@@ -68,6 +69,9 @@ test-container: venv/.created
 
 test-performance: venv/.created
 	venv/bin/pytest tests/test_container_performance.py -v
+
+test-mail: venv/.created
+	venv/bin/pytest tests/test_mail_integration.py -v
 
 test-coverage: venv/.created
 	venv/bin/pytest --cov=podserve --cov-report=html --cov-report=term-missing

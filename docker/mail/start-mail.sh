@@ -68,27 +68,37 @@ else
     echo "ssl = no" > /etc/dovecot/conf.d/10-ssl.conf
 fi
 
-# Create a test user for smoke testing
-echo "Creating test user: test@$MAIL_DOMAIN"
-mkdir -p "/var/mail/vhosts/$MAIL_DOMAIN/test"
+# Create an admin user for mail testing
+echo "Creating admin user: admin@$MAIL_DOMAIN"
+mkdir -p "/var/mail/vhosts/$MAIL_DOMAIN/admin/Maildir"
 chown -R vmail:vmail "/var/mail/vhosts/$MAIL_DOMAIN"
 
-# Create virtual mailbox map
-echo "test@$MAIL_DOMAIN    $MAIL_DOMAIN/test/Maildir/" > /etc/postfix/vmailbox
+# Create virtual mailbox map (path should match Dovecot mail_location)
+echo "admin@$MAIL_DOMAIN    $MAIL_DOMAIN/admin/Maildir/" > /etc/postfix/vmailbox
 postmap /etc/postfix/vmailbox
 
-# Create test user credentials (password: 'password')
-echo "test@$MAIL_DOMAIN:{SHA512-CRYPT}\$6\$rounds=5000\$GESr7nXL6mhzJBaV\$3RbAqV4P5YZJLNaWyf8c5J95urhzKxWkJpNGJO1Q0rKo5Y.q8hE6QV4C5vZ9X5Y5Y5Y5Y5Y5Y5Y5Y5Y5Y5Y5Y" > /etc/dovecot/users
+# Create virtual domains file (required for Postfix to accept mail for the domain)
+echo "$MAIL_DOMAIN    OK" > /etc/postfix/virtual_domains
+postmap /etc/postfix/virtual_domains
+
+# Create virtual alias map (required for mail delivery)
+echo "admin@$MAIL_DOMAIN    admin@$MAIL_DOMAIN" > /etc/postfix/virtual
+postmap /etc/postfix/virtual
+
+# Create admin user credentials (password: 'password')
+# Generate proper password hash using doveadm
+ADMIN_PASSWORD_HASH=$(doveadm pw -s SHA512-CRYPT -p password)
+echo "admin@$MAIL_DOMAIN:$ADMIN_PASSWORD_HASH" > /etc/dovecot/users
 chown root:dovecot /etc/dovecot/users
 chmod 640 /etc/dovecot/users
 
-echo "Test user created with password 'password'"
+echo "Admin user created with password 'password'"
 echo ""
 echo "Mail server configuration complete!"
 echo "  - SMTP: port 25 (plain), 587 (TLS)"
 echo "  - IMAP: port 143 (plain), 993 (TLS)"
 echo "  - POP3: port 110 (plain), 995 (TLS)"
-echo "  - Test account: test@$MAIL_DOMAIN (password: password)"
+echo "  - Admin account: admin@$MAIL_DOMAIN (password: password)"
 
 # Debug: Show final SSL environment variables
 if [ "$SSL_ENABLED" = "true" ]; then

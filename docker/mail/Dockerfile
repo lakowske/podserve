@@ -31,6 +31,7 @@ RUN openssl dhparam -out /etc/dovecot/dh.pem 2048
 
 # Copy configuration files
 COPY mail/config/main.cf /etc/postfix/main.cf.template
+COPY mail/config/master.cf /etc/postfix/master.cf
 COPY mail/config/dovecot.conf /etc/dovecot/dovecot.conf
 COPY mail/config/10-ssl.conf /etc/dovecot/conf.d/10-ssl.conf.template
 COPY mail/config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
