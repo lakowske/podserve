@@ -1,0 +1,14 @@
+_DOLLAR_ORIGIN 0.0.10.in-addr.arpa.
+_DOLLAR_TTL    604800
+@       IN      SOA     ${DNS_SERVER_NAME}. admin.${DNS_DOMAIN}. (
+                              1         ; Serial
+                         604800         ; Refresh
+                          86400         ; Retry
+                        2419200         ; Expire
+                         604800 )       ; Negative Cache TTL
+;
+@       IN      NS      ${DNS_SERVER_NAME}.
+2       IN      PTR     ${DNS_SERVER_NAME}.
+3       IN      PTR     mail.${DNS_DOMAIN}.
+4       IN      PTR     www.${DNS_DOMAIN}.
+5       IN      PTR     ftp.${DNS_DOMAIN}.

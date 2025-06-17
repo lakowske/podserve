@@ -1,0 +1,20 @@
+options {
+    directory "/var/cache/bind";
+
+    forwarders {
+        ${DNS_FORWARDERS_FORMATTED};
+    };
+
+    dnssec-validation ${DNSSEC_ENABLED};
+
+    auth-nxdomain no;
+    listen-on-v6 { any; };
+    listen-on { any; };
+
+    allow-query { any; };
+    allow-recursion { any; };
+    
+    recursion yes;
+
+    querylog yes;
+};
