@@ -12,7 +12,7 @@ CONTAINERS=$(podman ps --filter "name=podserve" --format "{{.Names}}" | grep -v 
 
 if [ -z "$CONTAINERS" ]; then
     echo "No PodServe containers running. Starting pod..."
-    podman play kube simple.yaml
+    podman play kube deploy/simple.yaml
     echo "Waiting for containers to start..."
     sleep 10
 fi

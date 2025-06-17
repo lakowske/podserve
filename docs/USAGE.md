@@ -19,14 +19,15 @@ The recommended way to deploy PodServe is using the provided Kubernetes YAML con
 
 ```bash
 # Deploy the complete pod with all services
-podman play kube simple.yaml
+podman play kube deploy/simple.yaml
 
 # Check deployment status
 podman pod ps
 podman ps --pod
 ```
 
-The `simple.yaml` configuration includes:
+The `deploy/simple.yaml` configuration includes:
+
 - **Apache container**: Web server with SSL, WebDAV, and GitWeb
 - **Mail container**: Postfix/Dovecot with SMTP, IMAP, and POP3
 - **DNS container**: BIND 9 with recursive resolution
@@ -38,13 +39,14 @@ For Let's Encrypt certificates:
 
 ```bash
 # Deploy certificate management pod
-podman play kube certificates.yaml
+podman play kube deploy/certificates.yaml
 
 # Check certificate generation
 podman logs podserve-certificates-certbot
 ```
 
-The `certificates.yaml` pod handles:
+The `deploy/certificates.yaml` pod handles:
+
 - Let's Encrypt certificate generation and renewal
 - Standalone HTTP-01 challenge validation
 - Certificate storage in shared volume
@@ -81,7 +83,7 @@ podman pod restart podserve-simple
 # Remove the pod and redeploy
 podman pod stop podserve-simple
 podman pod rm podserve-simple
-podman play kube simple.yaml
+podman play kube deploy/simple.yaml
 
 # View pod status
 podman pod ps
@@ -112,7 +114,7 @@ podman ps --format "table {{.Names}}\t{{.Status}}"
 
 ### Environment Configuration
 
-The pod hostname and services are configured via environment variables in `simple.yaml`:
+The pod hostname and services are configured via environment variables in `deploy/simple.yaml`:
 
 ```yaml
 # Apache configuration
@@ -126,7 +128,7 @@ env:
 - name: GITWEB_ENABLED
   value: "true"
 
-# Mail configuration  
+# Mail configuration
 env:
 - name: MAIL_SERVER_NAME
   value: "mail.lab.sethlakowske.com"
@@ -143,13 +145,13 @@ env:
 
 ## Certificate Management
 
-### Using Let's Encrypt with certificates.yaml
+### Using Let's Encrypt with deploy/certificates.yaml
 
 For production deployments with valid domain names:
 
 ```bash
 # Deploy certificate management pod (requires valid domain)
-podman play kube certificates.yaml
+podman play kube deploy/certificates.yaml
 
 # Monitor certificate generation
 podman logs -f podserve-certificates-certbot
@@ -209,7 +211,7 @@ podman logs podserve-simple-dns | grep query
 telnet localhost 25
 # Expected: 220 lab.sethlakowske.com ESMTP Postfix
 
-# Test IMAP connectivity  
+# Test IMAP connectivity
 telnet localhost 143
 # Expected: * OK [CAPABILITY IMAP4rev1 ...] Dovecot ready
 
@@ -285,7 +287,7 @@ podman pod rm podserve-simple
 podman volume rm podserve-certificates podserve-simple-web podserve-simple-mail
 
 # Recreate volumes by deploying the pod
-podman play kube simple.yaml
+podman play kube deploy/simple.yaml
 podman pod stop podserve-simple
 
 # Restore volumes from backup
@@ -303,7 +305,7 @@ podman pod start podserve-simple
 
 ### Volume Information
 
-The persistent volumes created by `simple.yaml`:
+The persistent volumes created by `deploy/simple.yaml`:
 
 - **podserve-certificates**: SSL/TLS certificates (shared across Apache and Mail)
 - **podserve-simple-web**: 10Gi web content, WebDAV files, Git repositories
@@ -384,54 +386,59 @@ podman exec podserve-simple-dns dig @127.0.0.1 google.com A +short
 ### Common Issues
 
 1. **Port conflicts**
+
    ```bash
    # Check if required ports are available
    ss -tlnp | grep -E ':(53|80|443|25|587|143|993|995)'
-   
+
    # If conflicts exist, stop conflicting services:
    sudo systemctl stop apache2   # If Apache is running on host
    sudo systemctl stop bind9     # If BIND is running on host
    ```
 
 2. **Container startup failures**
+
    ```bash
    # Check individual container logs for errors
    podman logs podserve-simple-apache
-   podman logs podserve-simple-mail  
+   podman logs podserve-simple-mail
    podman logs podserve-simple-dns
-   
+
    # Check container exit codes
    podman ps -a --filter name=podserve-simple
    ```
 
 3. **Certificate issues**
+
    ```bash
    # Check if certificates exist
    podman exec podserve-simple-apache ls -la /data/state/certificates/lab.sethlakowske.com/
-   
+
    # Verify certificate validity
    podman exec podserve-simple-apache openssl x509 -in /data/state/certificates/lab.sethlakowske.com/cert.pem -text -noout
-   
+
    # Test SSL configuration
    podman exec podserve-simple-apache apache2ctl configtest
    ```
 
 4. **Volume mounting issues**
+
    ```bash
    # Check volume status
    podman volume ls | grep podserve
    podman volume inspect podserve-certificates
-   
+
    # Check volume permissions (if using rootless podman)
    podman unshare ls -la $(podman volume inspect podserve-certificates --format '{{.Mountpoint}}')
    ```
 
 5. **Network connectivity issues**
+
    ```bash
    # Test external network from containers
    podman exec podserve-simple-dns dig @8.8.8.8 google.com
    podman exec podserve-simple-apache curl -I http://google.com
-   
+
    # Test inter-container communication
    podman exec podserve-simple-apache nc -zv localhost 53
    podman exec podserve-simple-mail nc -zv localhost 80
@@ -455,7 +462,7 @@ make performance-report
 ```bash
 # View all container logs
 podman logs podserve-simple-apache | tail -50
-podman logs podserve-simple-mail | tail -50  
+podman logs podserve-simple-mail | tail -50
 podman logs podserve-simple-dns | tail -50
 
 # Follow logs in real-time
@@ -473,25 +480,27 @@ journalctl -u user@$(id -u).service | grep podman
 
 ### Customizing the Deployment
 
-To customize the deployment, modify the `simple.yaml` file:
+To customize the deployment, modify the `deploy/simple.yaml` file:
 
 1. **Change hostname and domain**:
+
    ```yaml
    spec:
      hostname: your-domain.com
      hostAliases:
-     - ip: "127.0.0.1"
-       hostnames:
-       - "your-domain.com"
+       - ip: "127.0.0.1"
+         hostnames:
+           - "your-domain.com"
    ```
 
 2. **Modify environment variables**:
+
    ```yaml
    env:
-   - name: APACHE_SERVER_NAME
-     value: "your-domain.com"
-   - name: MAIL_DOMAIN
-     value: "your-domain.com"
+     - name: APACHE_SERVER_NAME
+       value: "your-domain.com"
+     - name: MAIL_DOMAIN
+       value: "your-domain.com"
    ```
 
 3. **Adjust resource limits**:
@@ -515,16 +524,16 @@ The system includes optimized health checks and shutdown procedures:
 
 ### Using Different Container Images
 
-To use custom or updated images, modify the `image` fields in `simple.yaml`:
+To use custom or updated images, modify the `image` fields in `deploy/simple.yaml`:
 
 ```yaml
 containers:
-- name: apache
-  image: your-registry/podserve-apache:v2.0
-- name: mail  
-  image: your-registry/podserve-mail:v2.0
-- name: dns
-  image: your-registry/podserve-dns:v2.0
+  - name: apache
+    image: your-registry/podserve-apache:v2.0
+  - name: mail
+    image: your-registry/podserve-mail:v2.0
+  - name: dns
+    image: your-registry/podserve-dns:v2.0
 ```
 
 ### Development and Testing
@@ -550,6 +559,7 @@ make deploy
 ### Container Security
 
 1. **Use rootless Podman**
+
    ```bash
    # Verify running in rootless mode
    podman info | grep rootless
@@ -557,7 +567,8 @@ make deploy
    ```
 
 2. **Certificate Security**
-   - Use Let's Encrypt certificates for production (`certificates.yaml`)
+
+   - Use Let's Encrypt certificates for production (`deploy/certificates.yaml`)
    - Certificates are shared read-only across containers
    - Regular certificate renewal via automated tools
 
@@ -569,6 +580,7 @@ make deploy
 ### Volume Security
 
 The persistent volumes use secure mounting:
+
 - **Certificates volume**: Read-only access for service containers
 - **Application volumes**: Proper ownership and permissions
 - **Volume isolation**: Each application has dedicated storage
@@ -576,10 +588,12 @@ The persistent volumes use secure mounting:
 ### Access Control
 
 1. **Default credentials** (change immediately):
+
    - WebDAV: admin / changeme
    - Modify in Apache container configuration
 
 2. **Firewall configuration**:
+
    ```bash
    # Example: Restrict access to specific networks
    sudo ufw allow from 192.168.1.0/24 to any port 443
@@ -594,17 +608,19 @@ The persistent volumes use secure mounting:
 ### Maintenance
 
 1. **Regular updates**:
+
    ```bash
    # Rebuild containers with latest base images
    make build
-   
+
    # Redeploy with updated images
    podman pod stop podserve-simple
    podman pod rm podserve-simple
-   podman play kube simple.yaml
+   podman play kube deploy/simple.yaml
    ```
 
 2. **Monitor logs**:
+
    ```bash
    # Check for security events
    podman logs podserve-simple-apache | grep -i "error\|fail\|denied"

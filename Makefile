@@ -92,7 +92,7 @@ build:
 	cd docker && ./build.sh
 
 deploy:
-	podman play kube simple.yaml
+	podman play kube deploy/simple.yaml
 
 teardown:
 	-podman pod stop --all
@@ -112,16 +112,16 @@ logs:
 
 # Performance and benchmarking
 benchmark:
-	./benchmark.sh
+	./scripts/benchmark.sh
 
 benchmark-quick:
-	./benchmark.sh quick
+	./scripts/benchmark.sh quick
 
 benchmark-shutdown:
-	./benchmark.sh shutdown
+	./scripts/benchmark.sh shutdown
 
 performance-report: venv/.created
-	venv/bin/python performance_thresholds.py report
+	venv/bin/python tools/performance_thresholds.py report
 
 status:
 	@echo "=== Pod Status ==="
