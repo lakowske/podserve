@@ -13,6 +13,7 @@ RUN apt-get update && \
         dovecot-lmtpd \
         mailutils \
         supervisor \
+        netcat-openbsd \
     && \
     # Clean up
     apt-get clean && \

@@ -119,6 +119,7 @@ fi
 
 # Enable additional configurations
 a2enconf apache-extra
+a2enconf apache-shutdown
 
 # Ensure default HTTP site is enabled
 a2ensite 000-default
@@ -141,4 +142,19 @@ if [ "$GITWEB_ENABLED" = "true" ]; then
     echo "  - Git: https://$APACHE_SERVER_NAME/git/"
 fi
 
-exec /usr/sbin/apache2ctl -D FOREGROUND
+# Source Apache environment variables (like apache2ctl does)
+echo "Loading Apache environment variables..."
+. /etc/apache2/envvars
+
+# Create necessary directories (like apache2ctl does)
+[ ! -d ${APACHE_RUN_DIR:-/var/run/apache2} ] && mkdir -p ${APACHE_RUN_DIR:-/var/run/apache2}
+[ ! -d ${APACHE_LOCK_DIR:-/var/lock/apache2} ] && mkdir -p ${APACHE_LOCK_DIR:-/var/lock/apache2}
+chown -R ${APACHE_RUN_USER:-www-data}:${APACHE_RUN_GROUP:-www-data} ${APACHE_RUN_DIR:-/var/run/apache2}
+chown -R ${APACHE_RUN_USER:-www-data}:${APACHE_RUN_GROUP:-www-data} ${APACHE_LOCK_DIR:-/var/lock/apache2}
+
+# Set file descriptor limits (like apache2ctl does)
+ulimit -n 8192 2>/dev/null || true
+
+# Start Apache directly with proper environment for optimal signal handling
+echo "Starting Apache directly with proper environment setup..."
+exec /usr/sbin/apache2 -D FOREGROUND

@@ -37,6 +37,32 @@ spec:
     - name: certificates
       mountPath: /data/state/certificates
       readOnly: true
+    livenessProbe:
+      exec:
+        command:
+        - curl
+        - -f
+        - http://localhost/
+      initialDelaySeconds: 1
+      periodSeconds: 3
+      timeoutSeconds: 10
+      failureThreshold: 5
+    readinessProbe:
+      exec:
+        command:
+        - curl
+        - -f
+        - http://localhost/
+      initialDelaySeconds: 1
+      periodSeconds: 3
+      timeoutSeconds: 5
+      failureThreshold: 5
+    lifecycle:
+      preStop:
+        exec:
+          command:
+          - /usr/local/bin/graceful-stop.sh
+    terminationGracePeriodSeconds: 3
   - name: mail
     image: localhost/podserve-mail:latest
     imagePullPolicy: IfNotPresent
@@ -62,6 +88,34 @@ spec:
       readOnly: true
     - name: mail
       mountPath: /var/mail/vhosts
+    livenessProbe:
+      exec:
+        command:
+        - sh
+        - -c
+        - echo "QUIT" | nc -w 1 localhost 25
+      initialDelaySeconds: 1
+      periodSeconds: 3
+      timeoutSeconds: 10
+      failureThreshold: 5
+    readinessProbe:
+      exec:
+        command:
+        - sh
+        - -c
+        - echo "QUIT" | nc -w 1 localhost 25
+      initialDelaySeconds: 1
+      periodSeconds: 3
+      timeoutSeconds: 5
+      failureThreshold: 5
+    lifecycle:
+      preStop:
+        exec:
+          command:
+          - supervisorctl
+          - stop
+          - all
+    terminationGracePeriodSeconds: 10
   - name: dns
     image: localhost/podserve-dns:latest
     imagePullPolicy: IfNotPresent
@@ -77,6 +131,37 @@ spec:
       value: "8.8.8.8;8.8.4.4"
     - name: DNSSEC_ENABLED
       value: "no"
+    livenessProbe:
+      exec:
+        command:
+        - dig
+        - "@127.0.0.1"
+        - "google.com"
+        - "A"
+        - "+short"
+      initialDelaySeconds: 1
+      periodSeconds: 3
+      timeoutSeconds: 10
+      failureThreshold: 5
+    readinessProbe:
+      exec:
+        command:
+        - dig
+        - "@127.0.0.1"
+        - "google.com"
+        - "A"
+        - "+short"
+      initialDelaySeconds: 1
+      periodSeconds: 3
+      timeoutSeconds: 5
+      failureThreshold: 5
+    lifecycle:
+      preStop:
+        exec:
+          command:
+          - rndc
+          - stop
+    terminationGracePeriodSeconds: 5
   volumes:
   - name: web
     persistentVolumeClaim:

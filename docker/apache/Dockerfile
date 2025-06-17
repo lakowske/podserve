@@ -42,12 +42,14 @@ RUN mkdir -p \
 COPY apache/config/000-default.conf /etc/apache2/sites-available/
 COPY apache/config/ssl-vhost.conf /etc/apache2/sites-available/
 COPY apache/config/apache-extra.conf /etc/apache2/conf-available/
+COPY apache/config/apache-shutdown.conf /etc/apache2/conf-available/
 COPY apache/config/webdav.conf /etc/apache2/conf-available/
 COPY apache/config/gitweb.conf /etc/apache2/conf-available/
 COPY apache/content/ /var/www/html/
 
-# Copy startup script
+# Copy startup script and shutdown script
 COPY --chmod=755 apache/start-apache.sh /usr/local/bin/start-apache.sh
+COPY --chmod=755 apache/graceful-stop.sh /usr/local/bin/graceful-stop.sh
 
 # Set environment variables with defaults
 ENV APACHE_SERVER_NAME=local.dev \

@@ -1,6 +1,6 @@
 # PodServe Makefile
 
-.PHONY: help install test test-unit test-integration test-all clean build lint format check dev-setup
+.PHONY: help install test test-unit test-integration test-container test-performance test-all clean build lint format check dev-setup benchmark benchmark-quick benchmark-shutdown performance-report logs status teardown deploy
 
 # Default target
 help:
@@ -16,6 +16,7 @@ help:
 	@echo "  test-unit    - Run unit tests only"
 	@echo "  test-integration - Run integration tests (requires containers)"
 	@echo "  test-container   - Run container-specific tests"
+	@echo "  test-performance - Run performance tests"
 	@echo "  test-coverage    - Run tests with coverage report"
 	@echo ""
 	@echo "Code Quality:"
@@ -28,6 +29,13 @@ help:
 	@echo "  deploy       - Deploy simple pod configuration"
 	@echo "  teardown     - Stop and remove all pods/containers"
 	@echo "  logs         - Show container logs"
+	@echo "  status       - Show pod, container, and volume status"
+	@echo ""
+	@echo "Performance:"
+	@echo "  benchmark    - Run performance benchmarks"
+	@echo "  benchmark-quick - Run quick performance test"
+	@echo "  benchmark-shutdown - Test shutdown performance"
+	@echo "  performance-report - Show performance report"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  clean        - Remove build artifacts and cache"
@@ -57,6 +65,9 @@ test-integration: venv/.created
 
 test-container: venv/.created
 	venv/bin/pytest -m container -v
+
+test-performance: venv/.created
+	venv/bin/pytest tests/test_container_performance.py -v
 
 test-coverage: venv/.created
 	venv/bin/pytest --cov=podserve --cov-report=html --cov-report=term-missing
@@ -95,6 +106,22 @@ logs:
 	@echo ""
 	@echo "=== Mail Logs ==="
 	-podman logs podserve-simple-mail
+	@echo ""
+	@echo "=== DNS Logs ==="
+	-podman logs podserve-simple-dns
+
+# Performance and benchmarking
+benchmark:
+	./benchmark.sh
+
+benchmark-quick:
+	./benchmark.sh quick
+
+benchmark-shutdown:
+	./benchmark.sh shutdown
+
+performance-report: venv/.created
+	venv/bin/python performance_thresholds.py report
 
 status:
 	@echo "=== Pod Status ==="
