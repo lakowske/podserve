@@ -1,0 +1,42 @@
+# Certificate service for PodServe-Harmony
+# Handles SSL/TLS certificate generation, renewal, and distribution
+
+FROM localhost/podserve-harmony-base:latest
+
+# Switch to root for package installation
+USER root
+
+# Install additional certificate management tools
+RUN apt-get update && apt-get install -y \
+    python3-cryptography \
+    python3-schedule \
+    cron \
+    && rm -rf /var/lib/apt/lists/*
+
+# Get the username from build args (should match base image)
+ARG USERNAME=seth
+
+# Ensure user has access to certificate tools
+RUN usermod -a -G ssl-cert ${USERNAME} 2>/dev/null || true
+
+# Create certificate-specific directories with proper permissions
+RUN mkdir -p /data/state/certificates /data/config/certificates && \
+    chown -R 1000:1000 /data/state/certificates /data/config/certificates && \
+    chmod 755 /data/state/certificates /data/config/certificates
+
+# Copy certificate service specific files
+COPY --chown=1000:1000 entrypoint.sh /usr/local/bin/certificates-entrypoint.sh
+RUN chmod +x /usr/local/bin/certificates-entrypoint.sh
+
+# Default to the user from base image
+USER ${USERNAME}
+
+# Set working directory
+WORKDIR /opt/podserve
+
+# Default certificate service command
+CMD ["python3", "-m", "podserve", "certificates", "--mode", "cron"]
+
+# Health check for certificate service
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD /usr/local/bin/health-check.sh certificates

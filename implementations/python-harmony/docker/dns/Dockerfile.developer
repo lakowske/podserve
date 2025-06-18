@@ -1,0 +1,43 @@
+# DNS service for PodServe-Harmony
+# Provides local DNS resolution and external forwarding using BIND9
+
+FROM localhost/podserve-harmony-base:latest
+
+# Get the username from build args (should match base image)
+ARG USERNAME=seth
+
+# Switch to root for package installation
+USER root
+
+# Install BIND9 and DNS utilities
+RUN apt-get update && apt-get install -y \
+    bind9 \
+    bind9utils \
+    bind9-doc \
+    dnsutils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create DNS-specific directories with proper permissions
+RUN mkdir -p /data/state/dns/zones /data/state/dns/cache /data/config/dns && \
+    chown -R 1000:1000 /data/state/dns /data/config/dns && \
+    chmod 755 /data/state/dns /data/config/dns
+
+# Copy DNS service specific files
+COPY --chown=1000:1000 entrypoint.sh /usr/local/bin/dns-entrypoint.sh
+RUN chmod +x /usr/local/bin/dns-entrypoint.sh
+
+# Default to the user from base image
+USER ${USERNAME}
+
+# Set working directory
+WORKDIR /home/${USERNAME}
+
+# Expose DNS ports
+EXPOSE 53/udp 53/tcp
+
+# Default DNS service command
+CMD ["python3", "-m", "podserve", "dns", "--debug"]
+
+# Health check for DNS service
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD /usr/local/bin/health-check.sh dns

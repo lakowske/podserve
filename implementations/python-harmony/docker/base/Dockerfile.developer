@@ -1,0 +1,75 @@
+# Developer-friendly base image for PodServe-Harmony
+# Implements developer-friendly permission strategy with comprehensive tooling
+
+FROM debian:12-slim
+
+# Accept UID/GID as build arguments (defaults to 1000)
+ARG USER_UID=1000
+ARG USER_GID=1000
+ARG USERNAME=developer
+
+# Install base packages and certificate management tools
+RUN apt-get update && apt-get install -y \
+    curl \
+    netcat-traditional \
+    dnsutils \
+    ca-certificates \
+    sudo \
+    python3 \
+    python3-pip \
+    python3-venv \
+    tini \
+    openssl \
+    certbot \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create developer group and user
+RUN groupadd -g ${USER_GID} ${USERNAME} && \
+    useradd -u ${USER_UID} -g ${USER_GID} -m -s /bin/bash ${USERNAME} && \
+    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Create data directories with proper ownership
+RUN mkdir -p /data/{config,logs,state,web,mail} && \
+    mkdir -p /data/state/certificates && \
+    mkdir -p /data/config/certificates && \
+    chown -R ${USER_UID}:${USER_GID} /data && \
+    chmod -R 755 /data
+
+# Create and set up Python environment
+RUN python3 -m venv /opt/venv && \
+    chown -R ${USER_UID}:${USER_GID} /opt/venv
+
+# Install Python package as developer user
+USER ${USERNAME}
+WORKDIR /home/${USERNAME}
+
+# Set up Python environment
+ENV PATH="/opt/venv/bin:$PATH"
+ENV PYTHONPATH=/opt/src
+
+# Copy Python package requirements
+COPY --chown=${USER_UID}:${USER_GID} requirements.txt /opt/
+RUN /opt/venv/bin/pip install --upgrade pip && \
+    /opt/venv/bin/pip install -r /opt/requirements.txt
+
+# Copy Python package and project config (will be overridden by host mount in development)  
+COPY --chown=${USER_UID}:${USER_GID} src /opt/src
+COPY --chown=${USER_UID}:${USER_GID} pyproject.toml /opt/
+
+# Install development package
+RUN cd /opt && /opt/venv/bin/pip install -e .
+
+# Copy entrypoint and health check scripts
+COPY --chown=${USER_UID}:${USER_GID} docker-entrypoint.sh /usr/local/bin/
+COPY --chown=${USER_UID}:${USER_GID} health-check.sh /usr/local/bin/
+RUN sudo chmod +x /usr/local/bin/docker-entrypoint.sh && \
+    sudo chmod +x /usr/local/bin/health-check.sh
+
+# Default to developer user
+USER ${USERNAME}
+
+# Use tini for proper signal handling
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
+
+# Default command shows help
+CMD ["python3", "-m", "podserve", "--help"]

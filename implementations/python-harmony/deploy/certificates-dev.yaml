@@ -1,0 +1,93 @@
+# Development deployment for PodServe-Harmony Certificate Service
+# For Phase 2: Isolated Service Development and Testing
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podserve-harmony-certificates-dev
+  labels:
+    app: podserve-harmony
+    service: certificates
+    mode: development
+spec:
+  hostname: lab.sethlakowske.com
+  
+  # Use developer-friendly security context
+  securityContext:
+    runAsUser: 1000     # Developer UID
+    runAsGroup: 1000    # Developer GID
+    fsGroup: 1000       # Files created belong to developer group
+    fsGroupChangePolicy: "OnRootMismatch"
+  
+  restartPolicy: Always
+  
+  containers:
+  - name: certificates
+    image: localhost/podserve-harmony-certificates:latest
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+    env:
+    - name: LOG_LEVEL
+      value: "DEBUG"
+    - name: DOMAIN
+      value: "lab.sethlakowske.com"
+    - name: CERTBOT_EMAIL
+      value: "admin@lab.sethlakowske.com"
+    - name: CERTBOT_METHOD
+      value: "self-signed"
+    - name: CERTBOT_STAGING
+      value: "false"
+    volumeMounts:
+    - name: certificates-data
+      mountPath: /data/state/certificates
+    - name: certificates-config
+      mountPath: /data/config/certificates
+    - name: certificates-logs
+      mountPath: /data/logs
+    # Mount source code for development
+    - name: podserve-src
+      mountPath: /opt/podserve
+    command: ["python3", "-m", "podserve", "certificates", "--debug", "--mode", "init"]
+    livenessProbe:
+      exec:
+        command:
+        - /usr/local/bin/health-check.sh
+        - certificates
+      initialDelaySeconds: 10
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readinessProbe:
+      exec:
+        command:
+        - /bin/bash
+        - -c
+        - "test -f /data/state/certificates/cert.pem && openssl x509 -in /data/state/certificates/cert.pem -noout -checkend 86400"
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+  
+  volumes:
+  # Persistent volumes for certificate data
+  - name: certificates-data
+    hostPath:
+      path: ./dev-data/certificates
+      type: DirectoryOrCreate
+      
+  - name: certificates-config
+    hostPath:
+      path: ./dev-data/config
+      type: DirectoryOrCreate
+      
+  - name: certificates-logs
+    hostPath:
+      path: ./dev-data/logs
+      type: DirectoryOrCreate
+      
+  # Host-mounted source code for development
+  - name: podserve-src
+    hostPath:
+      path: ./src/podserve
+      type: Directory

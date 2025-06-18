@@ -1,0 +1,152 @@
+# Integration Test: Certificate Service + Consumer Pattern
+# Tests the shared volume certificate consumption pattern
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: certificate-integration-test
+  labels:
+    app: podserve-harmony
+    test: certificate-integration
+spec:
+  hostname: lab.sethlakowske.com
+  
+  # Use developer-friendly security context
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    fsGroupChangePolicy: "OnRootMismatch"
+  
+  restartPolicy: Never
+  
+  # Initialize certificates first
+  initContainers:
+  - name: cert-init
+    image: localhost/podserve-harmony-certificates:latest
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+    workingDir: /home/seth
+    env:
+    - name: LOG_LEVEL
+      value: "DEBUG"
+    - name: DOMAIN
+      value: "lab.sethlakowske.com"
+    - name: CERTBOT_EMAIL
+      value: "admin@lab.sethlakowske.com"
+    - name: CERTBOT_METHOD
+      value: "self-signed"
+    volumeMounts:
+    - name: ssl-certificates
+      mountPath: /data/state/certificates
+    command: ["python3", "-m", "podserve", "certificates", "--debug", "--mode", "init"]
+  
+  containers:
+  # Certificate service in cron mode
+  - name: certificates
+    image: localhost/podserve-harmony-certificates:latest
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+    workingDir: /home/seth
+    env:
+    - name: LOG_LEVEL
+      value: "DEBUG"
+    - name: DOMAIN
+      value: "lab.sethlakowske.com"
+    - name: CERTBOT_EMAIL
+      value: "admin@lab.sethlakowske.com"
+    - name: CERTBOT_METHOD
+      value: "self-signed"
+    volumeMounts:
+    - name: ssl-certificates
+      mountPath: /data/state/certificates
+    - name: logs
+      mountPath: /data/logs
+    command: ["python3", "-m", "podserve", "certificates", "--debug", "--mode", "cron"]
+  
+  # Test consumer that reads certificates
+  - name: cert-consumer
+    image: docker.io/library/alpine:latest
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+    workingDir: /tmp
+    volumeMounts:
+    - name: ssl-certificates
+      mountPath: /test/ssl
+      readOnly: true
+    command: ["/bin/sh", "-c"]
+    args:
+    - |
+      echo "=== Certificate Consumer Integration Test ==="
+      
+      # Wait a moment for certificates to be available
+      sleep 5
+      
+      # Test 1: Check certificate files exist
+      echo "Test 1: Certificate file existence"
+      if [ -f /test/ssl/cert.pem ] && [ -f /test/ssl/privkey.pem ] && [ -f /test/ssl/fullchain.pem ]; then
+        echo "✅ All certificate files present"
+      else
+        echo "❌ Missing certificate files"
+        ls -la /test/ssl/
+        exit 1
+      fi
+      
+      # Test 2: Verify certificate validity
+      echo "Test 2: Certificate validity"
+      if openssl x509 -in /test/ssl/cert.pem -noout -text >/dev/null 2>&1; then
+        echo "✅ Certificate is valid"
+      else
+        echo "❌ Certificate validation failed"
+        exit 1
+      fi
+      
+      # Test 3: Check certificate details
+      echo "Test 3: Certificate details"
+      echo "Subject: $(openssl x509 -in /test/ssl/cert.pem -noout -subject)"
+      echo "Issuer: $(openssl x509 -in /test/ssl/cert.pem -noout -issuer)"
+      echo "Validity: $(openssl x509 -in /test/ssl/cert.pem -noout -dates)"
+      
+      # Test 4: Verify file permissions
+      echo "Test 4: File permissions"
+      cert_perms=$(stat -c "%a" /test/ssl/cert.pem)
+      key_perms=$(stat -c "%a" /test/ssl/privkey.pem)
+      
+      if [ "$cert_perms" = "644" ] && [ "$key_perms" = "640" ]; then
+        echo "✅ File permissions correct: cert=$cert_perms, key=$key_perms"
+      else
+        echo "❌ Incorrect file permissions: cert=$cert_perms, key=$key_perms"
+        ls -la /test/ssl/
+        exit 1
+      fi
+      
+      # Test 5: Continuous monitoring
+      echo "Test 5: Monitoring certificate availability"
+      for i in $(seq 1 10); do
+        if [ -f /test/ssl/cert.pem ]; then
+          echo "[$i/10] Certificate available"
+        else
+          echo "[$i/10] Certificate missing!"
+          exit 1
+        fi
+        sleep 2
+      done
+      
+      echo "🎉 Integration test completed successfully!"
+      echo "Certificate consumption pattern validated"
+  
+  volumes:
+  # Shared certificate storage
+  - name: ssl-certificates
+    hostPath:
+      path: ./integration-test-data/certificates
+      type: DirectoryOrCreate
+      
+  # Logging directory
+  - name: logs
+    hostPath:
+      path: ./integration-test-data/logs
+      type: DirectoryOrCreate

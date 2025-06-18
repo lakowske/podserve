@@ -1,0 +1,90 @@
+# Example: User Namespace Remapping Configuration for PodServe
+# WARNING: This configuration has significant limitations - see USER-NAMESPACE-COMPARISON.md
+# This is provided for educational purposes only
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podserve-namespace-example
+  labels:
+    app: podserve
+    mode: user-namespace-demo
+spec:
+  hostname: lab.sethlakowske.com
+  
+  # User namespace remapping happens at container runtime level
+  # Pod-level configuration cannot override this
+  
+  containers:
+  
+  # Apache - CANNOT bind to port 80 with user namespaces
+  - name: apache
+    image: httpd:2.4
+    # Must use non-privileged port
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+    env:
+    - name: APACHE_PORT
+      value: "8080"
+    # Would need custom httpd.conf to listen on 8080
+    volumeMounts:
+    - name: web-data
+      mountPath: /usr/local/apache2/htdocs
+      # :U flag required for ownership mapping (slow on large directories)
+      
+  # DNS - CANNOT bind to port 53 with user namespaces  
+  - name: dns
+    image: internetsystemsconsortium/bind9:9.18
+    # Must use non-privileged port
+    ports:
+    - containerPort: 1053
+      protocol: TCP
+    - containerPort: 1053  
+      protocol: UDP
+    env:
+    - name: BIND_PORT
+      value: "1053"
+    # Would need custom named.conf to listen on 1053
+    
+  # Mail - CANNOT work properly with user namespaces
+  # Commented out because it's fundamentally incompatible
+  # - name: mail
+  #   image: localhost/podserve-mail
+  #   # SMTP requires port 25 - no workaround possible
+  #   # External mail servers expect to connect to port 25
+  
+  volumes:
+  - name: web-data
+    persistentVolumeClaim:
+      claimName: podserve-web
+      
+---
+# Example commands to use user namespace remapping
+# (Don't run these - they won't work properly for PodServe)
+
+# Setup (one-time):
+# echo "seth:100000:65536" | sudo tee -a /etc/subuid
+# echo "seth:100000:65536" | sudo tee -a /etc/subgid
+
+# Container config:
+# mkdir -p ~/.config/containers
+# cat > ~/.config/containers/containers.conf << EOF
+# [containers]
+# userns = "keep-id:uid=1000,gid=1000"
+# EOF
+
+# Run with user namespace:
+# podman run --userns=keep-id -v ./data:/data:z,U httpd:2.4
+
+# Problems you'll encounter:
+# 1. Cannot bind to ports < 1024 (no HTTP, SMTP, DNS on standard ports)
+# 2. Performance penalty for networking (30-50% slower)  
+# 3. Volume mounting slower due to :U flag ownership changes
+# 4. Complex debugging when things don't work
+
+# Instead, use our explicit UID/GID approach:
+# cd implementations/python-unified/docker
+# ./build-dev.sh all
+# cd ..
+# podman play kube deploy/dev-permissions.yaml

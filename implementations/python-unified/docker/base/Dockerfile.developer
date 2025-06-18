@@ -1,0 +1,69 @@
+# Developer-friendly base image for PodServe
+# This Dockerfile implements the developer-friendly permission strategy
+
+FROM debian:12-slim
+
+# Accept UID/GID as build arguments (defaults to 1000)
+ARG USER_UID=1000
+ARG USER_GID=1000
+ARG USERNAME=developer
+
+# Install base packages
+RUN apt-get update && apt-get install -y \
+    curl \
+    netcat-traditional \
+    dnsutils \
+    ca-certificates \
+    sudo \
+    python3 \
+    python3-pip \
+    python3-venv \
+    tini \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create developer group and user
+RUN groupadd -g ${USER_GID} ${USERNAME} && \
+    useradd -u ${USER_UID} -g ${USER_GID} -m -s /bin/bash ${USERNAME} && \
+    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Create data directories with proper ownership
+RUN mkdir -p /data/{config,logs,state,web,mail,certs} && \
+    chown -R ${USER_UID}:${USER_GID} /data && \
+    chmod -R 755 /data
+
+# Create and set up Python environment
+RUN python3 -m venv /opt/venv && \
+    chown -R ${USER_UID}:${USER_GID} /opt/venv
+
+# Install Python package as developer user
+USER ${USERNAME}
+WORKDIR /home/${USERNAME}
+
+# Set up Python environment
+ENV PATH="/opt/venv/bin:$PATH"
+ENV PYTHONPATH=/opt/podserve
+
+# Copy Python package
+COPY --chown=${USER_UID}:${USER_GID} pyproject.toml /opt/
+COPY --chown=${USER_UID}:${USER_GID} src/podserve /opt/podserve
+
+# Install Python dependencies
+RUN /opt/venv/bin/pip install --upgrade pip && \
+    cd /opt && /opt/venv/bin/pip install -e .
+
+# Copy entrypoint script
+COPY --chown=${USER_UID}:${USER_GID} docker-entrypoint.sh /usr/local/bin/
+RUN sudo chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Health check script
+COPY --chown=${USER_UID}:${USER_GID} health-check.sh /usr/local/bin/
+RUN sudo chmod +x /usr/local/bin/health-check.sh
+
+# Default to developer user
+USER ${USERNAME}
+
+# Use tini for proper signal handling
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
+
+# Default command
+CMD ["python3", "-m", "podserve", "--help"]
