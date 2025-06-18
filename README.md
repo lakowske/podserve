@@ -2,11 +2,32 @@
 
 An integrated server pod providing web, mail, and DNS services in a single Podman pod.
 
+## Project Structure
+
+This project supports multiple implementation approaches:
+
+```
+├── services-docs/          # Service implementation guides
+├── implementations/        # Different implementation attempts
+│   ├── shell-based/       # Current shell script implementation
+│   └── python-unified/    # Python framework implementation (in progress)
+├── shared/                # Resources shared across implementations
+│   ├── docs/             # General documentation
+│   ├── tests/            # Test suite
+│   └── tools/            # Development and performance tools
+├── pyproject.toml         # Python project configuration
+├── Makefile               # Build commands with implementation selection
+└── CLAUDE.md              # Development notes and lessons learned
+```
+
 ## Quick Start
 
 ```bash
+# Select implementation (default: shell-based)
+export IMPL=shell-based
+
 # Deploy the complete pod
-podman play kube deploy/simple.yaml
+podman play kube implementations/$IMPL/deploy/simple.yaml
 
 # Check status
 podman pod ps
@@ -21,25 +42,26 @@ podman ps --pod
 - **Certificate Management**: Let's Encrypt integration
 - **Performance Optimized**: Fast startup and shutdown times
 
-## Project Structure
+## Implementation Approaches
 
-```
-├── deploy/           # Kubernetes YAML deployment files
-├── docs/             # Documentation
-├── docker/           # Container build files and configurations
-├── scripts/          # Utility scripts for development and testing
-├── src/              # Source code
-├── tests/            # Test suite
-├── tools/            # Development and performance tools
-├── Makefile          # Build and development commands
-└── pyproject.toml    # Python project configuration
-```
+### shell-based
+The original implementation using shell scripts and traditional service configuration files.
+- Proven and tested
+- Direct service configuration
+- Minimal abstraction
+
+### python-unified
+A new implementation using a unified Python framework (in development).
+- Consistent service management
+- Template-based configuration
+- Enhanced debugging capabilities
 
 ## Documentation
 
-- **[Usage Guide](docs/USAGE.md)** - Complete deployment and management guide
-- **[Architecture](docs/ARCHITECTURE.md)** - System design and components
-- **[Container Comparison](docs/CONTAINER-COMPARISON.md)** - Technology analysis
+- **[Usage Guide](shared/docs/USAGE.md)** - Complete deployment and management guide
+- **[Architecture](shared/docs/ARCHITECTURE.md)** - System design and components
+- **[Container Comparison](shared/docs/CONTAINER-COMPARISON.md)** - Technology analysis
+- **[Service Docs](services-docs/)** - Implementation guides for each service
 
 ## Development
 
@@ -47,8 +69,8 @@ podman ps --pod
 # Set up development environment
 make dev-setup
 
-# Build container images
-make build
+# Build container images for specific implementation
+make build IMPL=shell-based
 
 # Run tests
 make test
@@ -57,7 +79,7 @@ make test
 make benchmark
 
 # Deploy for testing
-make deploy
+make deploy IMPL=shell-based
 ```
 
 ## Requirements

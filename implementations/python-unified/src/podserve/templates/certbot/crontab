@@ -1,0 +1,14 @@
+# Certbot Certificate Renewal Crontab for PodServe
+#
+# This crontab entry runs certificate renewal checks twice daily
+# Certbot will only renew certificates that are within 30 days of expiration
+
+# Run renewal check twice daily at random times to spread load
+# The 'certbot renew' command will only renew certificates that need renewal
+0 */12 * * * /opt/podserve-venv/bin/python3 /opt/podserve/__main__.py certbot --config /data/config/certbot.env > /data/logs/certbot-renewal.log 2>&1
+
+# Alternative: Run certbot directly (if installed in container)
+# 0 */12 * * * /usr/bin/certbot renew --quiet --deploy-hook "/data/scripts/renewal-hooks.sh deploy" > /data/logs/certbot-renewal.log 2>&1
+
+# Run weekly certificate health check
+0 0 * * 0 /opt/podserve-venv/bin/python3 /opt/podserve/__main__.py certbot --check-health > /data/logs/certbot-health.log 2>&1

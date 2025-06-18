@@ -1,11 +1,18 @@
 # PodServe Makefile
 
+# Implementation selection (default: shell-based)
+IMPL ?= shell-based
+
 .PHONY: help install test test-unit test-integration test-container test-performance test-all clean build lint format check dev-setup benchmark benchmark-quick benchmark-shutdown performance-report logs status teardown deploy
 
 # Default target
 help:
 	@echo "PodServe Development Commands"
 	@echo "============================"
+	@echo ""
+	@echo "Implementation: $(IMPL)"
+	@echo "  Set IMPL variable to switch implementations:"
+	@echo "  make build IMPL=python-unified"
 	@echo ""
 	@echo "Setup:"
 	@echo "  dev-setup    - Set up development environment (venv, deps, pre-commit)"
@@ -56,47 +63,57 @@ install: venv/.created
 
 # Testing
 test: venv/.created
-	venv/bin/pytest
+	venv/bin/pytest shared/tests/
 
 test-unit: venv/.created
-	venv/bin/pytest -m "not integration and not container" -v
+	venv/bin/pytest shared/tests/ -m "not integration and not container" -v
 
 test-integration: venv/.created
-	venv/bin/pytest -m integration -v
+	venv/bin/pytest shared/tests/ -m integration -v
 
 test-container: venv/.created
-	venv/bin/pytest -m container -v
+	venv/bin/pytest shared/tests/ -m container -v
 
 test-performance: venv/.created
-	venv/bin/pytest tests/test_container_performance.py -v
+	venv/bin/pytest shared/tests/test_container_performance.py -v
 
 test-mail: venv/.created
-	venv/bin/pytest tests/test_mail_integration.py -v
+	venv/bin/pytest shared/tests/test_mail_integration.py -v
 
 test-coverage: venv/.created
-	venv/bin/pytest --cov=podserve --cov-report=html --cov-report=term-missing
+	venv/bin/pytest shared/tests/ --cov=podserve --cov-report=html --cov-report=term-missing
 
 test-all: venv/.created
-	venv/bin/pytest -v --tb=short
+	venv/bin/pytest shared/tests/ -v --tb=short
 
 # Code quality
 lint: venv/.created
-	venv/bin/flake8 src/ tests/
-	venv/bin/mypy src/
+	venv/bin/flake8 implementations/$(IMPL)/src/ shared/tests/
+	venv/bin/mypy implementations/$(IMPL)/src/
 
 format: venv/.created
-	venv/bin/black src/ tests/
-	venv/bin/isort src/ tests/
+	venv/bin/black implementations/$(IMPL)/src/ shared/tests/
+	venv/bin/isort implementations/$(IMPL)/src/ shared/tests/
 
 check: lint
 	@echo "All code quality checks passed!"
 
 # Container operations
 build:
-	cd docker && ./build.sh
+	@if [ -f implementations/$(IMPL)/docker/build.sh ]; then \
+		cd implementations/$(IMPL)/docker && ./build.sh; \
+	else \
+		echo "No build script found for implementation: $(IMPL)"; \
+		exit 1; \
+	fi
 
 deploy:
-	podman play kube deploy/simple.yaml
+	@if [ -f implementations/$(IMPL)/deploy/simple.yaml ]; then \
+		podman play kube implementations/$(IMPL)/deploy/simple.yaml; \
+	else \
+		echo "No deployment file found for implementation: $(IMPL)"; \
+		exit 1; \
+	fi
 
 teardown:
 	-podman pod stop --all
@@ -116,16 +133,31 @@ logs:
 
 # Performance and benchmarking
 benchmark:
-	./scripts/benchmark.sh
+	@if [ -f implementations/$(IMPL)/scripts/benchmark.sh ]; then \
+		implementations/$(IMPL)/scripts/benchmark.sh; \
+	else \
+		echo "No benchmark script found for implementation: $(IMPL)"; \
+		exit 1; \
+	fi
 
 benchmark-quick:
-	./scripts/benchmark.sh quick
+	@if [ -f implementations/$(IMPL)/scripts/benchmark.sh ]; then \
+		implementations/$(IMPL)/scripts/benchmark.sh quick; \
+	else \
+		echo "No benchmark script found for implementation: $(IMPL)"; \
+		exit 1; \
+	fi
 
 benchmark-shutdown:
-	./scripts/benchmark.sh shutdown
+	@if [ -f implementations/$(IMPL)/scripts/benchmark.sh ]; then \
+		implementations/$(IMPL)/scripts/benchmark.sh shutdown; \
+	else \
+		echo "No benchmark script found for implementation: $(IMPL)"; \
+		exit 1; \
+	fi
 
 performance-report: venv/.created
-	venv/bin/python tools/performance_thresholds.py report
+	venv/bin/python shared/tools/performance_thresholds.py report
 
 status:
 	@echo "=== Pod Status ==="

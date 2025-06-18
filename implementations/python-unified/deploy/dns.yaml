@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podserve-python-dns
+  labels:
+    app: podserve
+    service: dns
+    implementation: python-unified
+spec:
+  containers:
+  - name: dns
+    image: localhost/podserve-dns:latest
+    imagePullPolicy: Never
+    ports:
+    - containerPort: 53
+      hostPort: 5533
+      name: dns-udp
+      protocol: UDP
+    - containerPort: 53
+      hostPort: 5533
+      name: dns-tcp
+      protocol: TCP
+    - containerPort: 8082
+      hostPort: 8082
+      name: health
+    env:
+    - name: DNS_DOMAIN
+      value: "lab.localhost"
+    - name: DNS_FORWARDERS
+      value: "8.8.8.8; 8.8.4.4"
+    - name: WEB_SERVER_IP
+      value: "127.0.0.1"
+    - name: MAIL_SERVER_IP
+      value: "127.0.0.1"
+    - name: LOG_LEVEL
+      value: "INFO"
+    - name: HEALTH_CHECK_PORT
+      value: "8082"
+    volumeMounts:
+    - name: dns-data
+      mountPath: /var/cache/bind
+    - name: logs
+      mountPath: /data/logs
+    - name: config
+      mountPath: /data/config
+    - name: state
+      mountPath: /data/state
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 8082
+      initialDelaySeconds: 30
+      periodSeconds: 10
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 8082
+      initialDelaySeconds: 5
+      periodSeconds: 5
+  volumes:
+  - name: dns-data
+    emptyDir: {}
+  - name: logs
+    emptyDir: {}
+  - name: config
+    emptyDir: {}
+  - name: state
+    emptyDir: {}
+  restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dns-service
+spec:
+  selector:
+    app: podserve
+    service: dns
+  ports:
+  - name: dns-udp
+    port: 53
+    targetPort: 53
+    protocol: UDP
+  - name: dns-tcp
+    port: 53
+    targetPort: 53
+    protocol: TCP
+  - name: health
+    port: 8082
+    targetPort: 8082
+    protocol: TCP
+  type: ClusterIP

@@ -1,0 +1,19 @@
+;
+; Response Policy Zone (RPZ) for Security
+;
+$TTL    3600
+@       IN      SOA     ns1.{{ DNS_DOMAIN }}. admin.{{ DNS_DOMAIN }}. (
+                     {{ SERIAL }}      ; Serial
+                     3600              ; Refresh
+                     1800              ; Retry
+                     604800            ; Expire
+                     3600 )            ; Negative Cache TTL
+
+; Name servers
+@       IN      NS      ns1.{{ DNS_DOMAIN }}.
+
+; RPZ rules - block malicious domains (examples)
+; Uncomment and add actual malicious domains as needed
+; malware.example.com      IN      CNAME   .
+; phishing.example.com     IN      CNAME   .
+; botnet.example.com       IN      A       127.0.0.1

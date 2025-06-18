@@ -13,6 +13,7 @@
 - **SSL/Security**: openssl, ssl-cert
 - **Text processing**: gettext-base, sed, gawk
 - **Process management**: procps, psmisc
+- **Development tools**: Claude Code CLI for debugging and editing code within containers
 
 ## Default Configuration
 
@@ -30,3 +31,18 @@
 ## Usage
 
 This is a base image that other services extend. It provides common dependencies and directory structure to reduce duplication across service containers.
+
+### Debugging with Claude Code
+
+The base image includes Claude Code CLI to help debug and edit configurations within running containers:
+
+```bash
+# Access container with Claude Code
+podman exec -it <container-name> /bin/bash
+claude-code
+
+# Or directly run Claude Code commands
+podman exec -it <container-name> claude-code --help
+```
+
+This enables real-time debugging, configuration editing, and code analysis without rebuilding containers.

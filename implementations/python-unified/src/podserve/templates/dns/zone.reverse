@@ -1,0 +1,19 @@
+;
+; Reverse DNS Zone File for 127.0.0.x
+;
+$TTL    604800
+@       IN      SOA     ns1.{{ DNS_DOMAIN }}. admin.{{ DNS_DOMAIN }}. (
+                     {{ SERIAL }}      ; Serial
+                     604800            ; Refresh
+                     86400             ; Retry
+                     2419200           ; Expire
+                     604800 )          ; Negative Cache TTL
+
+; Name servers
+@       IN      NS      ns1.{{ DNS_DOMAIN }}.
+
+; PTR records for localhost range
+1.0     IN      PTR     localhost.
+1.1     IN      PTR     web.{{ DNS_DOMAIN }}.
+1.2     IN      PTR     mail.{{ DNS_DOMAIN }}.
+1.3     IN      PTR     dns.{{ DNS_DOMAIN }}.

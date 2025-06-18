@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podserve-python-apache
+  labels:
+    app: podserve
+    service: apache
+    implementation: python-unified
+spec:
+  containers:
+  - name: apache
+    image: localhost/podserve-apache:latest
+    imagePullPolicy: Never
+    ports:
+    - containerPort: 80
+      hostPort: 80
+      name: http
+    - containerPort: 443
+      hostPort: 443
+      name: https
+    - containerPort: 8080
+      hostPort: 8080
+      name: health
+    env:
+    - name: APACHE_SERVER_NAME
+      value: "web.lab.localhost"
+    - name: APACHE_SERVER_ADMIN
+      value: "webmaster@lab.localhost"
+    - name: APACHE_DOCUMENT_ROOT
+      value: "/data/web/html"
+    - name: CERT_MODE
+      value: "self-signed"
+    - name: LOG_LEVEL
+      value: "INFO"
+    volumeMounts:
+    - name: web-data
+      mountPath: /data/web
+    - name: logs
+      mountPath: /data/logs
+    - name: config
+      mountPath: /data/config
+    - name: state
+      mountPath: /data/state
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 8080
+      initialDelaySeconds: 30
+      periodSeconds: 10
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 5
+  volumes:
+  - name: web-data
+    emptyDir: {}
+  - name: logs
+    emptyDir: {}
+  - name: config
+    emptyDir: {}
+  - name: state
+    emptyDir: {}
+  restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apache-service
+spec:
+  selector:
+    app: podserve
+    service: apache
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  - name: https
+    port: 443
+    targetPort: 443
+    protocol: TCP
+  - name: health
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP

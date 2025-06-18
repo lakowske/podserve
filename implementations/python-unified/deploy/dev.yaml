@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podserve-python-dev
+  labels:
+    app: podserve
+    implementation: python-unified
+    mode: development
+spec:
+  hostname: lab.localhost
+  containers:
+  - name: mail
+    image: localhost/podserve-mail:latest
+    imagePullPolicy: IfNotPresent
+    ports:
+    - containerPort: 25
+      hostPort: 25
+    - containerPort: 143
+      hostPort: 143
+    - containerPort: 993
+      hostPort: 993
+    - containerPort: 587
+      hostPort: 587
+    - containerPort: 995
+      hostPort: 995
+    - containerPort: 8080
+      hostPort: 8080
+    env:
+    - name: MAIL_SERVER_NAME
+      value: "mail.lab.localhost"
+    - name: MAIL_DOMAIN
+      value: "lab.localhost"
+    - name: SSL_ENABLED
+      value: "false"
+    - name: HEALTH_CHECK_PORT
+      value: "8080"
+    - name: LOG_LEVEL
+      value: "DEBUG"
+    volumeMounts:
+    # Development: mount source code for live editing
+    - name: podserve-src
+      mountPath: /opt/podserve
+    # Standard data mounts
+    - name: mail-config
+      mountPath: /data/config
+    - name: mail-logs
+      mountPath: /data/logs
+    - name: mail-state
+      mountPath: /data/state
+    - name: mail-data
+      mountPath: /var/mail/vhosts
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 8080
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+  
+  volumes:
+  # Development: host-mount source code
+  - name: podserve-src
+    hostPath:
+      path: ./implementations/python-unified/src/podserve
+      type: Directory
+  # Standard volumes
+  - name: mail-config
+    hostPath:
+      path: ./data/python-dev/mail/config
+  - name: mail-logs
+    hostPath:
+      path: ./data/python-dev/mail/logs
+  - name: mail-state
+    hostPath:
+      path: ./data/python-dev/mail/state
+  - name: mail-data
+    hostPath:
+      path: ./data/python-dev/mail/vhosts

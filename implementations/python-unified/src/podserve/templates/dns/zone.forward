@@ -1,0 +1,49 @@
+;
+; Forward DNS Zone File for {{ DNS_DOMAIN }}
+;
+$TTL    604800
+@       IN      SOA     ns1.{{ DNS_DOMAIN }}. admin.{{ DNS_DOMAIN }}. (
+                     {{ SERIAL }}      ; Serial
+                     604800            ; Refresh
+                     86400             ; Retry
+                     2419200           ; Expire
+                     604800 )          ; Negative Cache TTL
+
+; Name servers
+@       IN      NS      ns1.{{ DNS_DOMAIN }}.
+
+; A records for name server
+ns1     IN      A       {{ MAIL_SERVER_IP }}
+
+; A records for services
+@       IN      A       {{ WEB_SERVER_IP }}
+web     IN      A       {{ WEB_SERVER_IP }}
+www     IN      A       {{ WEB_SERVER_IP }}
+mail    IN      A       {{ MAIL_SERVER_IP }}
+smtp    IN      A       {{ MAIL_SERVER_IP }}
+imap    IN      A       {{ MAIL_SERVER_IP }}
+dns     IN      A       {{ MAIL_SERVER_IP }}
+
+; CNAME records
+webmail IN      CNAME   mail.{{ DNS_DOMAIN }}.
+pop     IN      CNAME   mail.{{ DNS_DOMAIN }}.
+pop3    IN      CNAME   mail.{{ DNS_DOMAIN }}.
+
+; MX records for mail
+@       IN      MX      10      mail.{{ DNS_DOMAIN }}.
+
+; TXT records for mail security
+@       IN      TXT     "v=spf1 mx ~all"
+_dmarc  IN      TXT     "v=DMARC1; p=quarantine; rua=mailto:dmarc@{{ DNS_DOMAIN }}"
+
+; SRV records for mail services
+_smtp._tcp      IN      SRV     0 5 25  mail.{{ DNS_DOMAIN }}.
+_submission._tcp IN     SRV     0 5 587 mail.{{ DNS_DOMAIN }}.
+_imap._tcp      IN      SRV     0 5 143 mail.{{ DNS_DOMAIN }}.
+_imaps._tcp     IN      SRV     0 5 993 mail.{{ DNS_DOMAIN }}.
+_pop3._tcp      IN      SRV     0 5 110 mail.{{ DNS_DOMAIN }}.
+_pop3s._tcp     IN      SRV     0 5 995 mail.{{ DNS_DOMAIN }}.
+
+; HTTP/HTTPS services
+_http._tcp      IN      SRV     0 5 80  web.{{ DNS_DOMAIN }}.
+_https._tcp     IN      SRV     0 5 443 web.{{ DNS_DOMAIN }}.

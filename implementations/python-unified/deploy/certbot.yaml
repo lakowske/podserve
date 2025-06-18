@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podserve-python-certbot
+  labels:
+    app: podserve
+    service: certbot
+    implementation: python-unified
+spec:
+  containers:
+  - name: certbot
+    image: localhost/podserve-certbot:latest
+    imagePullPolicy: Never
+    ports:
+    - containerPort: 8083
+      hostPort: 8083
+      name: health
+    env:
+    - name: CERT_MODE
+      value: "self-signed"  # Options: self-signed, letsencrypt, letsencrypt-staging
+    - name: CERT_DOMAINS
+      value: "web.lab.localhost,mail.lab.localhost,lab.localhost"
+    - name: CERT_EMAIL
+      value: "admin@lab.localhost"
+    - name: CERT_AUTO_RENEW
+      value: "false"
+    - name: LOG_LEVEL
+      value: "INFO"
+    - name: HEALTH_CHECK_PORT
+      value: "8083"
+    volumeMounts:
+    - name: certificates
+      mountPath: /data/state/certificates
+    - name: letsencrypt
+      mountPath: /etc/letsencrypt
+    - name: webroot
+      mountPath: /var/www/html
+    - name: logs
+      mountPath: /data/logs
+    - name: config
+      mountPath: /data/config
+    - name: state
+      mountPath: /data/state
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 8083
+      initialDelaySeconds: 30
+      periodSeconds: 10
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 8083
+      initialDelaySeconds: 5
+      periodSeconds: 5
+  volumes:
+  - name: certificates
+    emptyDir: {}
+  - name: letsencrypt
+    emptyDir: {}
+  - name: webroot
+    emptyDir: {}
+  - name: logs
+    emptyDir: {}
+  - name: config
+    emptyDir: {}
+  - name: state
+    emptyDir: {}
+  restartPolicy: OnFailure
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: certbot-service
+spec:
+  selector:
+    app: podserve
+    service: certbot
+  ports:
+  - name: health
+    port: 8083
+    targetPort: 8083
+    protocol: TCP
+  type: ClusterIP
